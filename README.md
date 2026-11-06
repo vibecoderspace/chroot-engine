@@ -1,22 +1,23 @@
 # chroot-engine
 
-Android library that packages the **chroot-ng** AArch64 engine and installs an
-official **Ubuntu 24.04.5** base root filesystem at runtime.
+Android library that packages the **chroot-ng** AArch64 engine, installs an
+official **Ubuntu 24.04.5** base root filesystem at runtime, and prepares the
+chroot command for a PTY-backed terminal.
 
-The rootfs is not bundled in the AAR. `RootfsInstaller` downloads it from the
-official Ubuntu cdimage server, verifies its size and SHA-256, extracts it into
-the app's private storage, and configures it. `ChrootProcessRunner` then starts
-guest processes inside that image with chroot-ng.
+The module does **not** create or manage processes and does **not** open a PTY.
+It provides a global `ChrootRuntime` that installs one `RootfsImage` and a
+`ChrootTerminal` whose `shellPath`, `cwd`, `argv` and `env` plug directly into
+Termux's `terminal-emulator` / `terminal-view` `TerminalSession`.
 
 ## Contents
 
 | Path | Description |
 | --- | --- |
-| `ChrootEngine` | Entry point: context, runtime, process runner |
-| `ChrootRuntime` | Suspend install / reinstall / delete API |
-| `RootfsInstaller` | Blocking installer and downloader |
+| `ChrootRuntime` | Global runtime: install, reinstall, delete, build terminal |
+| `ChrootTerminal` | PTY-ready command for `TerminalSession` |
 | `RootfsProfile` / `DefaultProfiles` | Distro description and built-in Ubuntu profile |
 | `RootfsLayout` / `RootfsImage` | Installed image layout |
+| `InstallProgress` / `InstallException` | Progress and typed failures |
 | `TarExtractor.java` | Gzip/tar extractor |
 | `src/main/jniLibs/arm64-v8a/libchroot-ng.so` | chroot-ng AArch64 engine |
 
@@ -24,80 +25,84 @@ Only `arm64-v8a` is bundled. `minSdk` is 26.
 
 ## Usage
 
-```kotlin
-class App : Application() {
-    override fun onCreate() {
-        super.onCreate()
-        ChrootEngine.initialize(this)
-    }
-}
-```
-
-### Install the rootfs
+There is no `initialize` call. `ChrootRuntime.install(context)` is the entry
+point and installs the image **globally**:
 
 ```kotlin
-val runtime = ChrootEngine.runtime()
-val image = runtime.install(DefaultProfiles.ubuntu) { progress ->
+val image = ChrootRuntime.install(context) { progress ->
     // progress.stage is CHECKING, DOWNLOADING, VERIFYING,
     // EXTRACTING, CONFIGURING or READY.
     // progress.fraction is 0f..1f while downloading, otherwise -1f.
 }
+
+println(image.profile.displayName)
+println(image.layout.rootfsDir)
 ```
 
-`install()` is idempotent: a valid installed image is reused, a changed config
-version reconfigures it in place, and a different profile or archive replaces
-the sandbox while keeping `home/`.
+`install` is idempotent: a valid image is reused, a changed config version is
+reconfigured in place, and a different profile or archive replaces the sandbox
+while keeping `home/`. Call it on every app start to rebind the image after a
+process restart.
 
-The blocking form is available for Java and plain threads:
+Java and plain threads can use the blocking form:
 
 ```kotlin
-val image = RootfsInstaller(context).install(DefaultProfiles.ubuntu)
+RootfsImage image = ChrootRuntime.installBlocking(context);
 ```
 
-### Start the engine
-
-Bind the installed image to the engine once, then start processes without
-repeating it:
+### Build a terminal command
 
 ```kotlin
-ChrootEngine.initialize(this, image)
+val terminal = ChrootRuntime.terminal()
 
-val process = ChrootEngine.start(
-    ProcessSpec.shell("uname -a", shell = "/bin/bash"),
+// terminal.shellPath  chroot-ng executable
+// terminal.cwd       host working directory
+// terminal.argv      complete engine argv, including argv[0]
+// terminal.env       host environment ("PATH=/system/bin", "TMPDIR=...")
+// terminal.guestCommand  the guest argv
+```
+
+The default command is the profile's login shell (`/bin/bash -l` for Ubuntu).
+Pass a different guest command, working directory or environment when needed:
+
+```kotlin
+val terminal = ChrootRuntime.terminal(
+    command = listOf("/bin/bash", "-lc", "htop"),
+    workingDirectory = "/root",
+    environment = mapOf("TERM" to "screen-256color"),
 )
-
-println(process.output.bufferedReader().readText())
-val exitCode = process.awaitExit()
 ```
 
-`initialize(image)` can also be called later when the context was already
-initialized in `Application.onCreate`. The engine has one global image: every
-`start` call runs inside the currently bound image, and there is no per-process
-image argument. Re-binding replaces the image for all subsequent processes.
+### Bind to a PTY / Termux terminal-emulator
 
-Long-running services can write straight to a log file:
+`bindToPty` hands the four `TerminalSession` constructor arguments to the
+terminal layer. The terminal creates the PTY and execs the engine in the child:
 
 ```kotlin
-val server = ChrootEngine.processRunner().start(
-    ProcessSpec(
-        command = listOf("/usr/bin/my-server", "--port", "4097"),
-        workingDirectory = "/root",
-        logFile = File(context.cacheDir, "server.log"),
-    ),
-)
+val terminal = ChrootRuntime.terminal()
 
-server.stop()
+val session = terminal.bindToPty { shellPath, cwd, args, env ->
+    TerminalSession(shellPath, cwd, args, env, 2000, sessionClient)
+}
+
+terminalView.attachSession(session)
 ```
 
-`ProcessSpec` accepts a guest working directory, extra guest environment
-variables, a log file, stderr merging, and additional engine arguments.
+The same values are available for apps that call the Termux JNI directly:
 
-The host app owns the PTY. This version starts headless processes with pipes or
-a log file; an interactive terminal needs a PTY layer supplied by the host.
+```kotlin
+val argv = terminal.argv.toTypedArray()
+val env = terminal.env.toTypedArray()
+JNI.createSubprocess(terminal.shellPath, terminal.cwd, argv, env, pid, rows, cols, 0, 0)
+```
 
-## Rootfs layout
+The module never starts the process. The PTY owner is responsible for creating
+the terminal session and for its lifecycle.
 
-There is exactly one installed image:
+## Global image
+
+There is exactly one active image per app process. `install` binds it and every
+`ChrootRuntime.terminal()` call uses that image:
 
 ```text
 <private>/local/rootfs/
@@ -115,6 +120,16 @@ bound to both `/home` and `/root` in the guest, so files survive a reinstall.
 Installing a different profile replaces `sandbox/` and leaves `home/` alone.
 The legacy `filesDir/ubuntu-24.04.5` directory from 0.2.0 is removed on the
 first new install.
+
+Recovery and removal:
+
+```kotlin
+// Wipe and reinstall the active profile. keepHome defaults to true.
+val reinstalled = ChrootRuntime.reinstall(context)
+
+// Remove the image and its home directory. Cached archives stay.
+ChrootRuntime.delete(context)
+```
 
 ## Rootfs source and verification
 
@@ -153,10 +168,12 @@ class MyProfile : RootfsProfile {
     override val requiredPaths = listOf("bin/sh")
     override val shell = "/bin/sh"
 }
+
+ChrootRuntime.install(context, MyProfile())
 ```
 
-Profiles are the extension point for adding Alpine or another distribution
-later; the installer does not need to change.
+Override `configure(context)` when the distribution needs extra files written
+after extraction.
 
 ## Native packaging requirement
 
@@ -174,12 +191,12 @@ android {
 ```
 
 Without that setting Android may keep the library inside the APK instead of
-extracting it, and `execve` will fail. `ChrootProcessRunner` reports this
+extracting it, and `execve` will fail. `ChrootRuntime.terminal()` reports this
 explicitly when `libchroot-ng.so` is missing.
 
 ## Engine argv
 
-The runner starts:
+`ChrootRuntime.terminal()` produces:
 
 ```text
 libchroot-ng.so
@@ -196,14 +213,11 @@ libchroot-ng.so
 ```
 
 The engine synthesizes `/proc`, `/dev` and `/dev/shm`; only `/sys` is bound.
-The host environment given to the engine is only `PATH=/system/bin` and
+The host environment is only `PATH=/system/bin` and
 `TMPDIR=<filesDir>/tmp` (mode `0700`), because chroot-ng does not forward its
 own environment to the guest.
 
 ## Dependency
-
-The project publishes a release variant through `maven-publish`, so it can be
-consumed from JitPack once the repository is tagged:
 
 ```kotlin
 repositories {
@@ -211,7 +225,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.vibecoderspace:chroot-engine:0.3.2")
+    implementation("com.github.vibecoderspace:chroot-engine:0.4.0")
 }
 ```
 

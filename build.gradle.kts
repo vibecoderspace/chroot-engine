@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.github.vibecoderspace"
-version = "0.3.2"
+version = "0.4.0"
 
 android {
     namespace = "com.vibecoderspace.chrootengine"

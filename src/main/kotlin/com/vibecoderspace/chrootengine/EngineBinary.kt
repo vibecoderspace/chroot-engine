@@ -18,9 +18,9 @@ internal class EngineBinary(val file: File) {
             val directory = context.applicationInfo.nativeLibraryDir
                 ?: throw IllegalStateException(
                     "The app has no native library directory; cannot locate " +
-                        ChrootEngine.ENGINE_LIBRARY,
+                        ChrootRuntime.ENGINE_LIBRARY,
                 )
-            val file = File(directory, ChrootEngine.ENGINE_LIBRARY)
+            val file = File(directory, ChrootRuntime.ENGINE_LIBRARY)
             if (!file.isFile) {
                 throw IllegalStateException(
                     "chroot-ng engine not found at ${file.absolutePath}. " +

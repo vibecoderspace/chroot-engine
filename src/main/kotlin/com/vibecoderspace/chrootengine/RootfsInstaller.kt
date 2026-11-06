@@ -23,7 +23,7 @@ import java.security.MessageDigest
  * [install] is blocking and serialized. Prefer [ChrootRuntime] when calling
  * from coroutines; this class is public for Java callers and plain threads.
  */
-class RootfsInstaller(
+internal class RootfsInstaller(
     context: Context,
     private val profiles: List<RootfsProfile> = DefaultProfiles.all,
 ) {

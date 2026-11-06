@@ -68,13 +68,11 @@ jobs:
           unzip -p "$AAR" classes.jar > classes.jar
           unzip -l classes.jar > classes-contents.txt
           for expected in \
-            "com/vibecoderspace/chrootengine/ChrootEngine" \
             "com/vibecoderspace/chrootengine/ChrootRuntime" \
-            "com/vibecoderspace/chrootengine/RootfsInstaller" \
+            "com/vibecoderspace/chrootengine/ChrootTerminal" \
+            "com/vibecoderspace/chrootengine/RootfsProfile" \
             "com/vibecoderspace/chrootengine/DefaultProfiles" \
             "com/vibecoderspace/chrootengine/profile/UbuntuProfile" \
-            "com/vibecoderspace/chrootengine/process/ChrootProcessRunner" \
-            "com/vibecoderspace/chrootengine/process/ProcessSpec" \
             "com/vibecoderspace/chrootengine/TarExtractor"; do
             grep -q "$expected" classes-contents.txt
           done

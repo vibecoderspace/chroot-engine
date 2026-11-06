@@ -29,7 +29,7 @@ interface RootfsProfile {
     /** Paths that must exist before the image is considered usable. */
     val requiredPaths: List<String>
 
-    /** Guest shell used by [com.vibecoderspace.chrootengine.process.ProcessSpec.loginShell]. */
+    /** Guest shell used when [com.vibecoderspace.chrootengine.ChrootRuntime.terminal] starts a login shell. */
     val shell: String get() = "/bin/sh"
 
     /**

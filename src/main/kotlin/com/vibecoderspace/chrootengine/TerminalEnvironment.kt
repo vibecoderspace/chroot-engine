@@ -1,18 +1,20 @@
-package com.vibecoderspace.chrootengine.process
+package com.vibecoderspace.chrootengine
 
 import android.content.Context
 import android.system.Os
-import com.vibecoderspace.chrootengine.RootfsProfile
 import java.io.File
 import java.io.IOException
 
-/** Builds the complete environment for a chroot-ng process. */
-internal object ChrootEnvironment {
+/** Builds the guest environment and the small host environment for chroot-ng. */
+internal object TerminalEnvironment {
 
     private const val GUEST_PATH =
         "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-    fun guest(profile: RootfsProfile, spec: ProcessSpec): Map<String, String> {
+    fun guest(
+        profile: RootfsProfile,
+        overrides: Map<String, String>,
+    ): Map<String, String> {
         val environment = LinkedHashMap<String, String>()
         environment["HOME"] = "/root"
         environment["USER"] = "root"
@@ -24,7 +26,7 @@ internal object ChrootEnvironment {
         environment["LC_ALL"] = "C.UTF-8"
         environment["TMPDIR"] = "/tmp"
         environment["PATH"] = GUEST_PATH
-        environment.putAll(spec.environment)
+        environment.putAll(overrides)
         return environment
     }
 
@@ -35,10 +37,13 @@ internal object ChrootEnvironment {
      * passed as `-E` arguments. TMPDIR must be private because the engine uses
      * it for its /dev/shm stand-in and read-only /proc views.
      */
-    fun host(context: Context): Map<String, String> = mapOf(
-        "PATH" to "/system/bin",
-        "TMPDIR" to tempDir(context).absolutePath,
-    )
+    fun host(context: Context): List<String> {
+        val temp = tempDir(context)
+        return listOf(
+            "PATH=/system/bin",
+            "TMPDIR=${temp.absolutePath}",
+        )
+    }
 
     private fun tempDir(context: Context): File {
         val directory = File(context.filesDir, "tmp")
