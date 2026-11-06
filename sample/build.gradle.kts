@@ -37,6 +37,8 @@ android {
         // chroot-engine executes libchroot-ng.so from nativeLibraryDir.
         jniLibs {
             useLegacyPackaging = true
+            // Keep the engine byte-identical while the sample uses the NDK.
+            keepDebugSymbols += "**/libchroot-ng.so"
         }
     }
 }

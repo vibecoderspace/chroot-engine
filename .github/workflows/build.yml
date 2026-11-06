@@ -133,6 +133,10 @@ jobs:
           grep -q "lib/arm64-v8a/libchroot-ng.so" apk-contents.txt
           grep -q "lib/arm64-v8a/libtermux.so" apk-contents.txt
 
+          unzip -p "$APK" lib/arm64-v8a/libchroot-ng.so > engine-in-apk.so
+          echo "8d4920e96025ac604f0f1f791c2827c0a37972e448b3c58bb86d66495ff7d556  engine-in-apk.so" \
+            | sha256sum -c -
+
           MANIFEST="$(find sample/build/intermediates -path '*merged_manifest*debug*' -name AndroidManifest.xml | head -1)"
           test -n "$MANIFEST"
           grep -q 'extractNativeLibs="true"' "$MANIFEST"

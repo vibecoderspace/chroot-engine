@@ -219,6 +219,21 @@ Without that setting Android may keep the library inside the APK instead of
 extracting it, and `execve` will fail. `ChrootRuntime.terminal()` reports this
 explicitly when `libchroot-ng.so` is missing.
 
+If the host app also uses the NDK, AGP may run `llvm-strip` on every native
+library, including the engine. Stripping only removes the engine's debug
+sections, but to keep the packaged file byte-identical to the documented
+artifact, add:
+
+```kotlin
+android {
+    packaging {
+        jniLibs {
+            keepDebugSymbols += "**/libchroot-ng.so"
+        }
+    }
+}
+```
+
 ## Engine argv
 
 `ChrootRuntime.terminal()` produces:
