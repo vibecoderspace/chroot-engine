@@ -20,8 +20,8 @@ class ChrootEngineTest {
         }
 
         assertEquals(
-            "ChrootEngine.initialize(image) must be called before using " +
-                "start(spec), or pass the image to start(image, spec).",
+            "ChrootEngine.initialize(image) must be called after installing " +
+                "the root filesystem before starting a process.",
             error.message,
         )
     }

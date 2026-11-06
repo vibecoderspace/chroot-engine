@@ -11,7 +11,8 @@ import com.vibecoderspace.chrootengine.process.RunningProcess
  * The engine is packaged as a native library. The root filesystem is installed
  * on demand from the official Ubuntu cdimage server by [RootfsInstaller].
  *
- * Typical use:
+ * There is a single active image. Bind it once after installation, then every
+ * process starts inside that image:
  * ```
  * ChrootEngine.initialize(context)
  * val image = ChrootEngine.runtime().install()
@@ -27,15 +28,11 @@ object ChrootEngine {
     @Volatile
     private var appContext: Context? = null
 
-    @Volatile
-    private var activeImage: RootfsImage? = null
-
     /**
      * Stores the application context used by [runtime] and [processRunner].
      *
      * Call this once from [android.app.Application.onCreate] or before
-     * using the no-argument helpers. Call [initialize] with an image after
-     * installing the root filesystem to use [start] without passing it.
+     * using the no-argument helpers.
      */
     @JvmStatic
     fun initialize(context: Context) {
@@ -43,31 +40,32 @@ object ChrootEngine {
     }
 
     /**
-     * Stores [context] and the [image] that [start] and [image] use.
+     * Stores [context] and binds [image] as the single active image.
      *
      * This is the usual call after [ChrootRuntime.install] returns.
      */
     @JvmStatic
     fun initialize(context: Context, image: RootfsImage) {
         appContext = context.applicationContext
-        activeImage = image
+        ActiveRootfs.bind(image)
     }
 
     /**
-     * Binds [image] to the context previously passed to [initialize].
+     * Binds [image] as the single active image.
      *
      * Use this when the context was initialized once in `Application.onCreate`
-     * and the image is installed later.
+     * and the image is installed later. Re-binding replaces the previous image;
+     * processes always use the currently bound one.
      */
     @JvmStatic
     fun initialize(image: RootfsImage) {
         requireContext()
-        activeImage = image
+        ActiveRootfs.bind(image)
     }
 
-    /** The image bound by [initialize], or null when none is bound. */
+    /** The single active image, or null when none is bound. */
     @JvmStatic
-    fun image(): RootfsImage? = activeImage
+    fun image(): RootfsImage? = ActiveRootfs.image
 
     /** Runtime backed by the context previously passed to [initialize]. */
     @JvmStatic
@@ -88,36 +86,20 @@ object ChrootEngine {
         ChrootProcessRunner(context.applicationContext)
 
     /**
-     * Starts [spec] inside the image bound by [initialize].
+     * Starts [spec] inside the single active image.
      *
      * The caller owns the returned process and must call
      * [RunningProcess.stop] or [RunningProcess.awaitExit] when done.
      */
     @JvmStatic
     fun start(spec: ProcessSpec): RunningProcess {
-        val image = requireImage()
-        return processRunner().start(image, spec)
+        ActiveRootfs.require()
+        return processRunner().start(spec)
     }
-
-    /**
-     * Starts [spec] inside [image] using the context stored by [initialize].
-     *
-     * The caller owns the returned process and must call
-     * [RunningProcess.stop] or [RunningProcess.awaitExit] when done.
-     */
-    @JvmStatic
-    fun start(image: RootfsImage, spec: ProcessSpec): RunningProcess =
-        processRunner().start(image, spec)
 
     private fun requireContext(): Context = appContext
         ?: throw IllegalStateException(
             "ChrootEngine.initialize(context) must be called before " +
                 "using the stored context.",
-        )
-
-    private fun requireImage(): RootfsImage = activeImage
-        ?: throw IllegalStateException(
-            "ChrootEngine.initialize(image) must be called before using " +
-                "start(spec), or pass the image to start(image, spec).",
         )
 }

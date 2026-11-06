@@ -71,14 +71,14 @@ val exitCode = process.awaitExit()
 ```
 
 `initialize(image)` can also be called later when the context was already
-initialized in `Application.onCreate`. `start(image, spec)` remains available
-when no image is bound.
+initialized in `Application.onCreate`. The engine has one global image: every
+`start` call runs inside the currently bound image, and there is no per-process
+image argument. Re-binding replaces the image for all subsequent processes.
 
 Long-running services can write straight to a log file:
 
 ```kotlin
 val server = ChrootEngine.processRunner().start(
-    image,
     ProcessSpec(
         command = listOf("/usr/bin/my-server", "--port", "4097"),
         workingDirectory = "/root",
@@ -211,7 +211,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.vibecoderspace:chroot-engine:0.3.1")
+    implementation("com.github.vibecoderspace:chroot-engine:0.3.2")
 }
 ```
 

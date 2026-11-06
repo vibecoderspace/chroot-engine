@@ -23,7 +23,7 @@ class RootfsMetadataTest {
             sha256 = TEST_SHA,
             installedAt = 1234L,
             configVersion = 2,
-            libraryVersion = "0.3.1",
+            libraryVersion = "0.3.2",
         )
 
         metadata.write(file)
