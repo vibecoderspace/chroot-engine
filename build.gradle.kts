@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.github.vibecoderspace"
-version = "0.2.0"
+version = "0.3.0"
 
 android {
     namespace = "com.vibecoderspace.chrootengine"
@@ -23,11 +23,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     publishing {
         singleVariant("release") {
             withSourcesJar()
         }
     }
+}
+
+dependencies {
+    implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit)
 }
 
 afterEvaluate {
