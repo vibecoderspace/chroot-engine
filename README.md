@@ -56,15 +56,23 @@ val image = RootfsInstaller(context).install(DefaultProfiles.ubuntu)
 
 ### Start the engine
 
+Bind the installed image to the engine once, then start processes without
+repeating it:
+
 ```kotlin
+ChrootEngine.initialize(this, image)
+
 val process = ChrootEngine.start(
-    image,
     ProcessSpec.shell("uname -a", shell = "/bin/bash"),
 )
 
 println(process.output.bufferedReader().readText())
 val exitCode = process.awaitExit()
 ```
+
+`initialize(image)` can also be called later when the context was already
+initialized in `Application.onCreate`. `start(image, spec)` remains available
+when no image is bound.
 
 Long-running services can write straight to a log file:
 
@@ -203,7 +211,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.vibecoderspace:chroot-engine:0.3.0")
+    implementation("com.github.vibecoderspace:chroot-engine:0.3.1")
 }
 ```
 

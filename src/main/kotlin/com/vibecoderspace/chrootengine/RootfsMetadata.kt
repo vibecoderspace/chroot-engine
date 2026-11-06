@@ -61,7 +61,7 @@ internal data class RootfsMetadata(
 
     companion object {
         const val SCHEMA: Int = 1
-        const val LIBRARY_VERSION: String = "0.3.0"
+        const val LIBRARY_VERSION: String = "0.3.1"
 
         private const val KEY_SCHEMA = "schema"
         private const val KEY_ID = "id"
