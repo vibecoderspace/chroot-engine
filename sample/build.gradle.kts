@@ -44,4 +44,5 @@ android {
 dependencies {
     implementation(project(":"))
     implementation(project(":sample:terminal-view"))
+    implementation(libs.androidx.annotation)
 }
