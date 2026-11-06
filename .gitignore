@@ -1,0 +1,16 @@
+# Gradle
+.gradle
+build
+.kotlin
+
+# Local Android SDK configuration
+local.properties
+
+# IDE
+.idea
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
