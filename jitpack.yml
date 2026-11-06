@@ -1,0 +1,4 @@
+# JitPack builds every project by default; the sample app needs the NDK.
+# Publish only the library module at the root.
+install:
+  - ./gradlew :clean :assembleRelease :publishReleasePublicationToMavenLocal --no-daemon

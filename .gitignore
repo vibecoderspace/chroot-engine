@@ -2,6 +2,7 @@
 .gradle
 build
 .kotlin
+.cxx
 
 # Local Android SDK configuration
 local.properties

@@ -15,3 +15,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "chroot-engine"
+
+include(":sample")
+include(":sample:terminal-emulator")
+include(":sample:terminal-view")

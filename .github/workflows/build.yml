@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -82,5 +83,64 @@ jobs:
         with:
           name: chroot-engine-release
           path: build/outputs/aar/chroot-engine-release.aar
+          if-no-files-found: error
+          retention-days: 14
+
+  sample:
+    name: Build sample APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Install Android SDK, NDK and CMake
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install \
+            "platforms;android-37.2" \
+            "build-tools;37.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Verify engine artifact
+        run: |
+          set -euo pipefail
+          echo "8d4920e96025ac604f0f1f791c2827c0a37972e448b3c58bb86d66495ff7d556  src/main/jniLibs/arm64-v8a/libchroot-ng.so" \
+            | sha256sum -c -
+
+      - name: Build sample APK
+        run: ./gradlew :sample:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify sample APK
+        run: |
+          set -euo pipefail
+          APK="sample/build/outputs/apk/debug/sample-debug.apk"
+          test -f "$APK"
+          unzip -l "$APK" > apk-contents.txt
+          grep -q "lib/arm64-v8a/libchroot-ng.so" apk-contents.txt
+          grep -q "lib/arm64-v8a/libtermux.so" apk-contents.txt
+
+          MANIFEST="$(find sample/build/intermediates -path '*merged_manifest*debug*' -name AndroidManifest.xml | head -1)"
+          test -n "$MANIFEST"
+          grep -q 'extractNativeLibs="true"' "$MANIFEST"
+
+      - name: Upload sample APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: chroot-engine-sample-debug
+          path: sample/build/outputs/apk/debug/sample-debug.apk
           if-no-files-found: error
           retention-days: 14

@@ -25,3 +25,12 @@ is what keeps the freestanding build hermetic.
 
 qemu-aarch64 is used only as a differential-testing oracle (see tests/); it is
 neither included nor linked.
+
+Termux terminal-emulator and terminal-view
+Copyright (c) 2012-2024 Fredrik Fornwall and Termux contributors
+
+The `sample/terminal-emulator` and `sample/terminal-view` modules vendor the
+Termux terminal implementation from https://github.com/termux/termux-app under
+the Apache License, Version 2.0. The stock `termux.c` JNI and Java sources are
+used; local changes are limited to packaging them as standalone Gradle modules.
+

@@ -20,6 +20,7 @@ Termux's `terminal-emulator` / `terminal-view` `TerminalSession`.
 | `InstallProgress` / `InstallException` | Progress and typed failures |
 | `TarExtractor.java` | Gzip/tar extractor |
 | `src/main/jniLibs/arm64-v8a/libchroot-ng.so` | chroot-ng AArch64 engine |
+| `sample/` | Debug app for on-device testing |
 
 Only `arm64-v8a` is bundled. `minSdk` is 26.
 
@@ -98,6 +99,30 @@ JNI.createSubprocess(terminal.shellPath, terminal.cwd, argv, env, pid, rows, col
 
 The module never starts the process. The PTY owner is responsible for creating
 the terminal session and for its lifecycle.
+
+## Sample app
+
+`:sample` is a debug APK that exercises the whole flow on a real arm64 device:
+
+1. `ChrootRuntime.installBlocking` downloads or reuses Ubuntu 24.04.5 and shows
+   the install stage and download fraction.
+2. `ChrootRuntime.terminal()` builds the chroot-ng command.
+3. The command is bound to the PTY of the vendored Termux
+   `terminal-emulator` / `terminal-view` with `bindToPty`.
+4. The terminal is attached to a `TerminalView`, with Ctrl/Alt toggles.
+
+```bash
+./gradlew :sample:assembleDebug
+adb install -r sample/build/outputs/apk/debug/sample-debug.apk
+```
+
+The sample requires NDK `28.2.13676358` and CMake `3.22.1`, and only builds
+`arm64-v8a`. CI builds it with `:sample:assembleDebug`; the APK contains both
+`libchroot-ng.so` and the terminal-emulator `libtermux.so`.
+
+The terminal modules are vendored from Termux under
+`sample/terminal-emulator` and `sample/terminal-view` (Apache-2.0). Their stock
+JNI is used unchanged; see `NOTICE`.
 
 ## Global image
 
