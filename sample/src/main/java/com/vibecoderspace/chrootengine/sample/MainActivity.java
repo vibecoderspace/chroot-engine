@@ -76,6 +76,8 @@ public final class MainActivity extends Activity {
         keyboardButton = findViewById(R.id.keyboard);
 
         terminalView.setTerminalViewClient(viewClient);
+        terminalView.setFocusable(true);
+        terminalView.setFocusableInTouchMode(true);
         applyTextSize();
 
         restartButton.setOnClickListener(v -> {
@@ -132,6 +134,15 @@ public final class MainActivity extends Activity {
         }
         io.shutdownNow();
         super.onDestroy();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && session != null && session.isRunning()) {
+            terminalView.requestFocus();
+            showKeyboard();
+        }
     }
 
     // ----------------------------------------------------------- installation
@@ -231,11 +242,7 @@ public final class MainActivity extends Activity {
 
             terminalView.attachSession(session);
             statusText.setText("Ubuntu 24.04.5 · " + session.getCwd());
-
-            terminalView.post(() -> {
-                terminalView.requestFocus();
-                showKeyboard();
-            });
+            showKeyboardWhenReady();
         } catch (Throwable e) {
             Log.e(TAG, "Cannot start the chroot session", e);
             statusText.setText("Shell failed: " + describe(e));
@@ -300,18 +307,24 @@ public final class MainActivity extends Activity {
     }
 
     void toggleKeyboard() {
-        InputMethodManager imm =
-                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm == null) return;
-        if (imm.isAcceptingText()) {
-            imm.hideSoftInputFromWindow(terminalView.getWindowToken(), 0);
-        } else {
+        terminalView.requestFocus();
+        // Let the focus change settle before asking the IME to show.
+        terminalView.post(this::showKeyboard);
+    }
+
+    /** Waits for the window to gain focus before asking the IME to show. */
+    private void showKeyboardWhenReady() {
+        terminalView.postDelayed(() -> {
+            if (isFinishing() || session == null) return;
             terminalView.requestFocus();
-            imm.showSoftInput(terminalView, InputMethodManager.SHOW_IMPLICIT);
-        }
+            showKeyboard();
+        }, 200);
     }
 
     private void showKeyboard() {
+        if (!terminalView.hasFocus()) {
+            terminalView.requestFocus();
+        }
         InputMethodManager imm =
                 (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) {
