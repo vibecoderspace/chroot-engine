@@ -37,12 +37,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Verify packaged artifacts
+      - name: Verify engine artifact
         run: |
           set -euo pipefail
-          ASSET="src/main/assets/ubuntu-base-24.04.5-base-arm64.tgz"
-          test "$(stat -c%s "$ASSET")" = "29936675"
-          sha256sum -c "${ASSET}.sha256"
           echo "8d4920e96025ac604f0f1f791c2827c0a37972e448b3c58bb86d66495ff7d556  src/main/jniLibs/arm64-v8a/libchroot-ng.so" \
             | sha256sum -c -
 
@@ -55,12 +52,20 @@ jobs:
           AAR="build/outputs/aar/chroot-engine-release.aar"
           test -f "$AAR"
           unzip -l "$AAR" > aar-contents.txt
-          grep -q "assets/ubuntu-base-24.04.5-base-arm64.tgz" aar-contents.txt
           grep -q "jni/arm64-v8a/libchroot-ng.so" aar-contents.txt
           if grep -qE "jni/(armeabi|armeabi-v7a|x86|x86_64)/" aar-contents.txt; then
             echo "Unexpected non-arm64 native libraries in $AAR" >&2
             exit 1
           fi
+          if grep -q "assets/ubuntu-base" aar-contents.txt; then
+            echo "The rootfs must not be bundled in $AAR" >&2
+            exit 1
+          fi
+
+          unzip -p "$AAR" classes.jar > classes.jar
+          unzip -l classes.jar > classes-contents.txt
+          grep -q "com/vibecoderspace/chrootengine/RootFsInstaller" classes-contents.txt
+          grep -q "com/vibecoderspace/chrootengine/TarExtractor" classes-contents.txt
 
       - name: Upload release AAR
         uses: actions/upload-artifact@v7
